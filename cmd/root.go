@@ -5,10 +5,13 @@ Copyright © 2025 zihaofu245 <zihaofu12@gmail.com>
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"nc/model"
+	"nc/util"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -22,6 +25,8 @@ var (
 	idleSeconds int
 	source      string
 	numeric_ip  bool
+	scan        string
+	jobs        int
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -29,9 +34,22 @@ var rootCmd = &cobra.Command{
 	Use:   "nc [host] [port]",
 	Short: "netcat go",
 	Long:  `netcat implemented in go.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
+
 	Run: func(cmd *cobra.Command, args []string) {
+		// Scan ports
+		if scan != "" {
+			host, ports, err := parseScanPort(args, scan)
+			if err != nil {
+				fmt.Println(err.Error())
+				os.Exit(1)
+			}
+			if err := model.Scan(host, ports, verbose, udp, idleSeconds, port, jobs); err != nil {
+				fmt.Println(err.Error())
+				os.Exit(1)
+			}
+			return
+		}
+
 		// -l flag for listen mode
 		if listen {
 			listenPort, err := parseListenPort(args, port)
@@ -51,15 +69,19 @@ var rootCmd = &cobra.Command{
 			portStr := args[1]
 			err := model.ConnectWithTimer(host, portStr, verbose, udp, idleSeconds, numeric_ip)
 			if err != nil {
-				println(err.Error())
+				fmt.Println(err.Error())
+				os.Exit(1)
 			}
+			return
 		}
 
 		if len(args) > 2 {
 			println("too many arguments, use -h flag for help")
+			return
 		}
 		if len(args) < 2 {
 			println("missing arguments, use -h flag for help")
+			return
 		}
 	},
 }
@@ -89,7 +111,9 @@ func init() {
 	rootCmd.Flags().BoolVarP(&acceptLoop, "keep-listening", "k", false, "accept loop")
 	rootCmd.Flags().IntVarP(&idleSeconds, "time-outs", "w", 0, "Timeouts")
 	rootCmd.Flags().StringVarP(&source, "source", "s", "", "specify source ip address")
-	rootCmd.Flags().BoolVarP(&numeric_ip, "numeric-ip", "n", false, "Diable DNS lookup, only accept ip address")
+	rootCmd.Flags().BoolVarP(&numeric_ip, "numeric-ip", "n", false, "Disable DNS lookup, only accept ip address")
+	rootCmd.Flags().StringVarP(&scan, "scan", "z", "", "Scan a range of ports, [start]:[end], or 80 443 22 ...")
+	rootCmd.Flags().IntVarP(&jobs, "jobs", "j", 3, "Number of concurrency for -z port scan")
 }
 
 func parseListenPort(args []string, flagPort int) (int, error) {
@@ -115,4 +139,75 @@ func parseListenPort(args []string, flagPort int) (int, error) {
 	}
 
 	return portCandidate, nil
+}
+
+func parseScanPort(args []string, flagRange string) (string, []int, error) {
+	var portRange []int
+	seen := make(map[int]struct{})
+
+	if len(args) == 0 {
+		return "", nil, errors.New("-z missing host, use -h for help")
+	}
+
+	host := strings.TrimSpace(args[0])
+	if host == "" {
+		return "", nil, errors.New("-z missing host, use -h for help")
+	}
+
+	addPort := func(portVal int) {
+		if _, exists := seen[portVal]; exists {
+			return
+		}
+		seen[portVal] = struct{}{}
+		portRange = append(portRange, portVal)
+	}
+
+	addPortStr := func(portStr string) error {
+		validated, err := util.PortCheck(strings.TrimSpace(portStr))
+		if err != nil {
+			return errors.New("port parsing failed, use -h for help")
+		}
+		portVal, _ := strconv.Atoi(validated)
+		addPort(portVal)
+		return nil
+	}
+
+	// -z called with range or single value
+	if flagRange != "" {
+		parts := strings.Split(strings.TrimSpace(flagRange), ":")
+		switch len(parts) {
+		case 1:
+			if err := addPortStr(parts[0]); err != nil {
+				return "", nil, err
+			}
+		case 2:
+			startStr, err1 := util.PortCheck(strings.TrimSpace(parts[0]))
+			endStr, err2 := util.PortCheck(strings.TrimSpace(parts[1]))
+			if err1 != nil || err2 != nil {
+				return "", nil, errors.New("port parsing failed, use -h for help")
+			}
+			start, _ := strconv.Atoi(startStr)
+			end, _ := strconv.Atoi(endStr)
+			if start > end {
+				return "", nil, errors.New("port parsing failed, use -h for help")
+			}
+			for p := start; p <= end; p++ {
+				addPort(p)
+			}
+		default:
+			return "", nil, errors.New("port parsing failed, use -h for help")
+		}
+	}
+
+	if len(args) == 1 && len(portRange) == 0 {
+		return "", nil, errors.New("-z missing ports, use -h for help")
+	}
+
+	for _, strPort := range args[1:] {
+		if err := addPortStr(strPort); err != nil {
+			return "", nil, err
+		}
+	}
+
+	return host, portRange, nil
 }

@@ -1,2 +1,6 @@
 nc.exe
 nc
+
+.idea/
+.vscode/
+.DS_Store
