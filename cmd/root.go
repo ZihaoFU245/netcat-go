@@ -116,7 +116,7 @@ func init() {
 	rootCmd.Flags().IntVarP(&port, "port", "p", 0, "port number")
 	rootCmd.Flags().BoolVarP(&udp, "udp", "u", false, "UDP mode")
 	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "verbose mode")
-	rootCmd.Flags().BoolVarP(&acceptLoop, "keep-listening", "k", false, "accept loop")
+	rootCmd.Flags().BoolVarP(&acceptLoop, "keep-alive", "k", false, "keep listening")
 	rootCmd.Flags().IntVarP(&idleSeconds, "time-outs", "w", 0, "Timeouts")
 	rootCmd.Flags().StringVarP(&source, "source", "s", "", "specify source ip address")
 	rootCmd.Flags().BoolVarP(&numeric_ip, "numeric-ip", "n", false, "Disable DNS lookup, only accept ip address")
