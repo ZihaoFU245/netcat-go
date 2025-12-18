@@ -67,10 +67,10 @@ nc [host] [port] [flags]
 ./nc  example.com -v -j 10 -z 80 443 8080
 ```
 
+### 3. File Transfer
+
 > [!WARNING]  
 > File transfer is not working under this version and will be fixed
-
-### 3. File Transfer
 
 **Receiver (Listen and write to file):**
 
