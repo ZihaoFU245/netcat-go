@@ -50,30 +50,34 @@ nc [host] [port] [flags]
 ```
 
 ### 2. Port Scanning
-**Scan ports 20 through 80 on example.com:**
+**Scan ports 60 through 80 on example.com:**
 ```bash
-./nc -z -v example.com 20-80
+./nc -v -z 60:80 example.com -j 20 -w 10
 ```
 **Scan specific ports with high concurrency:**
 ```bash
-./nc -z -v -j 10 example.com 80 443 8080
+./nc  example.com -v -j 10 -z 80 443 8080
 ```
+
+> [!WARNING]  
+> File transfer is not working under this version and will be fixed
 
 ### 3. File Transfer
 **Receiver (Listen and write to file):**
 ```bash
-./nc -l -p 9000 > received_file.txt
+./nc -l -p 9000 > send.txt
 ```
 **Sender (Connect and send file):**
 ```bash
-./nc localhost 9000 < file_to_send.txt
+./nc localhost 9000 < receive.txt
 ```
 
 ### 4. UDP Connection
 **Server:**
 ```bash
-./nc -u -l -p 5000 -v
+./nc -u -l -p 5000 -v -k
 ```
+**-k for keep listening or program will exit after received first UDP packet**
 **Client:**
 ```bash
 ./nc -u localhost 5000 -v
