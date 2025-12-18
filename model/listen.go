@@ -13,12 +13,12 @@ import (
 )
 
 // Listen starts a TCP/UDP listener with optional source filtering and keep-alive behavior.
-func Listen(port int, verbose bool, udp bool, keepOpen bool, source string) error {
+func Listen(port int, verbose bool, udp bool, keepOpen bool, source string, ipMode IPMode) error {
 	if err := validatePort(port); err != nil {
 		return err
 	}
 
-	allowedIP, err := resolveSource(source)
+	allowedIP, err := resolveSource(source, ipMode)
 	if err != nil {
 		return err
 	}
@@ -28,9 +28,10 @@ func Listen(port int, verbose bool, udp bool, keepOpen bool, source string) erro
 		verbose:   verbose,
 		keepOpen:  keepOpen,
 		allowedIP: allowedIP,
+		ipMode:    ipMode,
 	}
 
-	announceMode(cfg.port, udp)
+	announceMode(cfg.port, udp, ipMode)
 
 	if udp {
 		return listenUDP(cfg)
@@ -44,6 +45,7 @@ type listenConfig struct {
 	verbose   bool
 	keepOpen  bool
 	allowedIP net.IP
+	ipMode    IPMode
 }
 
 func validatePort(port int) error {
@@ -54,12 +56,12 @@ func validatePort(port int) error {
 	return nil
 }
 
-func resolveSource(source string) (net.IP, error) {
+func resolveSource(source string, ipMode IPMode) (net.IP, error) {
 	if source == "" {
 		return nil, nil
 	}
 
-	addr, err := net.ResolveIPAddr("ip", source)
+	addr, err := net.ResolveIPAddr(ipMode.ResolveNetwork(), source)
 	if err != nil {
 		return nil, fmt.Errorf("invalid source address: %w", err)
 	}
@@ -67,13 +69,20 @@ func resolveSource(source string) (net.IP, error) {
 	return addr.IP, nil
 }
 
-func announceMode(port int, udp bool) {
+func announceMode(port int, udp bool, ipMode IPMode) {
 	protocol := "TCP"
 	if udp {
 		protocol = "UDP"
 	}
 
-	fmt.Printf("Listening on port %d (%s)\n", port, protocol)
+	family := "IPv4/IPv6"
+	if ipMode == IPv4Only {
+		family = "IPv4"
+	} else if ipMode == IPv6Only {
+		family = "IPv6"
+	}
+
+	fmt.Printf("Listening on port %d (%s, %s)\n", port, protocol, family)
 }
 
 func (cfg listenConfig) allowed(addr net.IP) bool {
@@ -85,12 +94,14 @@ func (cfg listenConfig) allowed(addr net.IP) bool {
 }
 
 func listenUDP(cfg listenConfig) error {
-	addr, err := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(cfg.port))
+	network := cfg.ipMode.Network(true)
+
+	addr, err := net.ResolveUDPAddr(network, ":"+strconv.Itoa(cfg.port))
 	if err != nil {
 		return err
 	}
 
-	conn, err := net.ListenUDP("udp", addr)
+	conn, err := net.ListenUDP(network, addr)
 	if err != nil {
 		return err
 	}
@@ -131,7 +142,7 @@ func listenUDP(cfg listenConfig) error {
 }
 
 func listenTCP(cfg listenConfig) error {
-	ln, err := net.Listen("tcp", ":"+strconv.Itoa(cfg.port))
+	ln, err := net.Listen(cfg.ipMode.Network(false), ":"+strconv.Itoa(cfg.port))
 	if err != nil {
 		return err
 	}

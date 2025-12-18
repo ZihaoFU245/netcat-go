@@ -16,7 +16,7 @@ import (
 
 // ConnectWithTimer establishes a connection with a timeout (idleSeconds).
 // If idleSeconds > 0, the connection will be terminated after the specified duration.
-func ConnectWithTimer(host string, portStr string, verbose bool, udp bool, idleSeconds int, noDNSCheck bool) error {
+func ConnectWithTimer(host string, portStr string, verbose bool, udp bool, idleSeconds int, noDNSCheck bool, ipMode IPMode) error {
 	var ctx context.Context
 	var cancel context.CancelFunc
 
@@ -28,24 +28,23 @@ func ConnectWithTimer(host string, portStr string, verbose bool, udp bool, idleS
 		ctx = context.Background()
 	}
 
-	return connect(ctx, host, portStr, verbose, udp, noDNSCheck)
+	return connect(ctx, host, portStr, verbose, udp, noDNSCheck, ipMode)
 }
 
 // connect orchestrates the connection process: validation, establishment, and I/O handling.
-func connect(ctx context.Context, host string, portStr string, verbose bool, udp bool, noDNSCheck bool) error {
+func connect(ctx context.Context, host string, portStr string, verbose bool, udp bool, noDNSCheck bool, ipMode IPMode) error {
 	// Validate the port number
 	port, err := util.PortCheck(portStr)
 	if err != nil {
 		return err
 	}
 
-	// When DNS lookups are disabled (-n), require a numeric IP to avoid implicit lookups in Dialer.
-	if noDNSCheck && net.ParseIP(host) == nil {
-		return fmt.Errorf("numeric host required when -n is set")
+	if err := ipMode.ValidateHost(host, noDNSCheck); err != nil {
+		return err
 	}
 
 	// Attempt to establish the connection (with retries)
-	conn, err := establishConnection(ctx, host, port, verbose, udp)
+	conn, err := establishConnection(ctx, host, port, verbose, udp, ipMode)
 	if err != nil {
 		return err
 	}
@@ -57,12 +56,9 @@ func connect(ctx context.Context, host string, portStr string, verbose bool, udp
 
 // establishConnection attempts to connect to the target host/port.
 // It retries every second until successful or until the context is canceled.
-func establishConnection(ctx context.Context, host, port string, verbose, udp bool) (net.Conn, error) {
+func establishConnection(ctx context.Context, host, port string, verbose, udp bool, ipMode IPMode) (net.Conn, error) {
 	var d net.Dialer
-	network := "tcp"
-	if udp {
-		network = "udp"
-	}
+	network := ipMode.Network(udp)
 	address := net.JoinHostPort(host, port)
 
 	for {

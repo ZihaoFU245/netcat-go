@@ -17,12 +17,15 @@ import (
 // ports are printed, and closed ports are only reported when verbose mode is on. If
 // idleSeconds is greater than zero, the scan is bounded by that timeout. The optional
 // localPort argument sets a local source port when provided (mirrors nc -p behavior).
-func Scan(host string, ports []int, verbose bool, udp bool, idleSeconds int, localPort int, jobs int) error {
+func Scan(host string, ports []int, verbose bool, udp bool, idleSeconds int, localPort int, jobs int, ipMode IPMode) error {
 	if len(ports) == 0 {
 		return fmt.Errorf("no ports to scan")
 	}
 	if jobs < 1 {
 		return fmt.Errorf("jobs must be at least 1")
+	}
+	if err := ipMode.ValidateHost(host, false); err != nil {
+		return err
 	}
 
 	ctx := context.Background()
@@ -58,7 +61,7 @@ func Scan(host string, ports []int, verbose bool, udp bool, idleSeconds int, loc
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			if err := scanPort(ctx, &dialer, host, p, verbose, udp, idleSeconds); err != nil {
+			if err := scanPort(ctx, &dialer, host, p, verbose, udp, idleSeconds, ipMode); err != nil {
 				if ctx.Err() != nil {
 					return
 				}
@@ -81,16 +84,13 @@ func Scan(host string, ports []int, verbose bool, udp bool, idleSeconds int, loc
 	return ctx.Err()
 }
 
-func scanPort(ctx context.Context, dialer *net.Dialer, host string, port int, verbose bool, udp bool, idleSeconds int) error {
-	network := "tcp"
-	if udp {
-		network = "udp"
-	}
+func scanPort(ctx context.Context, dialer *net.Dialer, host string, port int, verbose bool, udp bool, idleSeconds int, ipMode IPMode) error {
+	network := ipMode.Network(udp)
 
 	address := net.JoinHostPort(host, strconv.Itoa(port))
 
 	if udp {
-		return scanUDP(ctx, dialer, address, host, port, verbose, idleSeconds)
+		return scanUDP(ctx, dialer, address, host, port, verbose, idleSeconds, network)
 	}
 
 	conn, err := dialer.DialContext(ctx, network, address)
@@ -106,13 +106,13 @@ func scanPort(ctx context.Context, dialer *net.Dialer, host string, port int, ve
 	return nil
 }
 
-func scanUDP(ctx context.Context, dialer *net.Dialer, address, host string, port int, verbose bool, idleSeconds int) error {
+func scanUDP(ctx context.Context, dialer *net.Dialer, address, host string, port int, verbose bool, idleSeconds int, network string) error {
 	timeout := 1 * time.Second
 	if idleSeconds > 0 {
 		timeout = time.Duration(idleSeconds) * time.Second
 	}
 
-	conn, err := dialer.DialContext(ctx, "udp", address)
+	conn, err := dialer.DialContext(ctx, network, address)
 	if err != nil {
 		if verbose {
 			fmt.Printf("%s:%d closed (%v)\n", host, port, err)
