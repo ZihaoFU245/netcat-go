@@ -25,6 +25,8 @@ var (
 	idleSeconds int
 	source      string
 	numeric_ip  bool
+	ipv4Only    bool
+	ipv6Only    bool
 	scan        string
 	jobs        int
 )
@@ -36,6 +38,12 @@ var rootCmd = &cobra.Command{
 	Long:  `netcat implemented in go.`,
 
 	Run: func(cmd *cobra.Command, args []string) {
+		ipMode, err := model.NewIPMode(ipv4Only, ipv6Only)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+
 		// Scan ports
 		if scan != "" {
 			host, ports, err := parseScanPort(args, scan)
@@ -43,7 +51,7 @@ var rootCmd = &cobra.Command{
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
-			if err := model.Scan(host, ports, verbose, udp, idleSeconds, port, jobs); err != nil {
+			if err := model.Scan(host, ports, verbose, udp, idleSeconds, port, jobs, ipMode); err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
@@ -57,7 +65,7 @@ var rootCmd = &cobra.Command{
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
-			if err := model.Listen(listenPort, verbose, udp, acceptLoop, source); err != nil {
+			if err := model.Listen(listenPort, verbose, udp, acceptLoop, source, ipMode); err != nil {
 				fmt.Println(err.Error())
 			}
 			return
@@ -67,7 +75,7 @@ var rootCmd = &cobra.Command{
 		if len(args) == 2 {
 			host := args[0]
 			portStr := args[1]
-			err := model.ConnectWithTimer(host, portStr, verbose, udp, idleSeconds, numeric_ip)
+			err := model.ConnectWithTimer(host, portStr, verbose, udp, idleSeconds, numeric_ip, ipMode)
 			if err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
@@ -112,6 +120,8 @@ func init() {
 	rootCmd.Flags().IntVarP(&idleSeconds, "time-outs", "w", 0, "Timeouts")
 	rootCmd.Flags().StringVarP(&source, "source", "s", "", "specify source ip address")
 	rootCmd.Flags().BoolVarP(&numeric_ip, "numeric-ip", "n", false, "Disable DNS lookup, only accept ip address")
+	rootCmd.Flags().BoolVarP(&ipv4Only, "ipv4", "4", false, "IPv4 only")
+	rootCmd.Flags().BoolVarP(&ipv6Only, "ipv6", "6", false, "IPv6 only")
 	rootCmd.Flags().StringVarP(&scan, "scan", "z", "", "Scan a range of ports, [start]:[end], or 80 443 22 ...")
 	rootCmd.Flags().IntVarP(&jobs, "jobs", "j", 3, "Number of concurrency for -z port scan")
 }
