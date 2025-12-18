@@ -5,6 +5,7 @@ package util
 
 import (
 	"errors"
+	"net"
 	"strconv"
 )
 
@@ -17,4 +18,12 @@ func PortCheck(portStr string) (string, error) {
 		return "", errors.New("invalid port range")
 	}
 	return strconv.Itoa(port), nil
+}
+
+func DNSLookUp(host string) ([]net.IP, error) {
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return nil, err
+	}
+	return ips, nil
 }

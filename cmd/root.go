@@ -21,6 +21,7 @@ var (
 	acceptLoop  bool
 	idleSeconds int
 	source      string
+	numeric_ip  bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -48,7 +49,7 @@ var rootCmd = &cobra.Command{
 		if len(args) == 2 {
 			host := args[0]
 			portStr := args[1]
-			err := model.ConnectWithTimer(host, portStr, verbose, udp, idleSeconds)
+			err := model.ConnectWithTimer(host, portStr, verbose, udp, idleSeconds, numeric_ip)
 			if err != nil {
 				println(err.Error())
 			}
@@ -88,6 +89,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&acceptLoop, "keep-listening", "k", false, "accept loop")
 	rootCmd.Flags().IntVarP(&idleSeconds, "time-outs", "w", 0, "Timeouts")
 	rootCmd.Flags().StringVarP(&source, "source", "s", "", "specify source ip address")
+	rootCmd.Flags().BoolVarP(&numeric_ip, "numeric-ip", "n", false, "Diable DNS lookup, only accept ip address")
 }
 
 func parseListenPort(args []string, flagPort int) (int, error) {

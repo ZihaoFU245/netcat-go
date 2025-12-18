@@ -16,7 +16,7 @@ import (
 
 // ConnectWithTimer establishes a connection with a timeout (idleSeconds).
 // If idleSeconds > 0, the connection will be terminated after the specified duration.
-func ConnectWithTimer(host string, portStr string, verbose bool, udp bool, idleSeconds int) error {
+func ConnectWithTimer(host string, portStr string, verbose bool, udp bool, idleSeconds int, noDNSCheck bool) error {
 	var ctx context.Context
 	var cancel context.CancelFunc
 
@@ -28,15 +28,20 @@ func ConnectWithTimer(host string, portStr string, verbose bool, udp bool, idleS
 		ctx = context.Background()
 	}
 
-	return connect(ctx, host, portStr, verbose, udp)
+	return connect(ctx, host, portStr, verbose, udp, noDNSCheck)
 }
 
 // connect orchestrates the connection process: validation, establishment, and I/O handling.
-func connect(ctx context.Context, host string, portStr string, verbose bool, udp bool) error {
+func connect(ctx context.Context, host string, portStr string, verbose bool, udp bool, noDNSCheck bool) error {
 	// Validate the port number
 	port, err := util.PortCheck(portStr)
 	if err != nil {
 		return err
+	}
+
+	// When DNS lookups are disabled (-n), require a numeric IP to avoid implicit lookups in Dialer.
+	if noDNSCheck && net.ParseIP(host) == nil {
+		return fmt.Errorf("numeric host required when -n is set")
 	}
 
 	// Attempt to establish the connection (with retries)
