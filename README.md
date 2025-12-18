@@ -65,11 +65,11 @@ nc [host] [port] [flags]
 ### 3. File Transfer
 **Receiver (Listen and write to file):**
 ```bash
-./nc -l -p 9000 > send.txt
+./nc -l -p 9000 > receive.txt
 ```
 **Sender (Connect and send file):**
 ```bash
-./nc localhost 9000 < receive.txt
+./nc localhost 9000 < send.txt
 ```
 
 ### 4. UDP Connection
@@ -78,6 +78,7 @@ nc [host] [port] [flags]
 ./nc -u -l -p 5000 -v -k
 ```
 **-k for keep listening or program will exit after received first UDP packet**
+
 **Client:**
 ```bash
 ./nc -u localhost 5000 -v
