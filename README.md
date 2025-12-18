@@ -31,7 +31,7 @@ nc [host] [port] [flags]
 | `--listen` | `-l` | Listen mode (server) |
 | `--numeric-ip` | `-n` | Disable DNS lookup (numeric IP only) |
 | `--port` | `-p` | Source port (client/scan) or Listen port (server) |
-| `--scan` | `-z` | Scan mode (e.g., `20-80` or `80 443`) |
+| `--scan` | `-z` | Scan mode (e.g., `20:80` or `80 443 22`) |
 | `--source` | `-s` | Specify source IP address (for filtering or binding) |
 | `--time-outs` | `-w` | Connection/Idle timeout in seconds |
 | `--udp` | `-u` | UDP mode |
